@@ -72,7 +72,8 @@ def download_csv(report_id: str):
     writer.writerow([
         "Operator", "Package", "Version", "Channel", "Namespace",
         "Lifecycle Phase", "Tier", "Full Support Ends", "Maintenance Ends",
-        "EUS Ends", "CSV Name", "CSV Phase", "Catalog Source", "Provider",
+        "EUS Ends", "ELS Ends", "ELS Eligible", "Extended Support Kind",
+        "Lifecycle Note", "CSV Name", "CSV Phase", "Catalog Source", "Provider",
         "Matched Product", "Lifecycle URL",
     ])
 
@@ -90,6 +91,10 @@ def download_csv(report_id: str):
             op.get("full_support_ends", ""),
             op.get("maintenance_ends", ""),
             op.get("eus_ends", ""),
+            op.get("els_ends", ""),
+            "yes" if op.get("els_eligible") else "no",
+            op.get("extended_support_kind", ""),
+            op.get("lifecycle_note", ""),
             op.get("csv_name", ""),
             op.get("csv_phase", ""),
             op.get("catalog_source", ""),

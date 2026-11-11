@@ -27,6 +27,7 @@ from app.lifecycle import (
     PHASE_UNKNOWN,
     LifecycleCatalog,
     _normalize_version,
+    extended_support_remark,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,8 +54,12 @@ class OperatorReport:
     full_support_ends: str = ""
     maintenance_ends: str = ""
     eus_ends: str = ""
+    els_ends: str = ""
     lifecycle_url: str = ""
     matched_product: str = ""
+    els_eligible: bool = False
+    extended_support_kind: str = ""
+    lifecycle_note: str = ""
 
     @property
     def phase_sort_key(self) -> int:
@@ -76,8 +81,12 @@ class OperatorReport:
             "full_support_ends": self.full_support_ends,
             "maintenance_ends": self.maintenance_ends,
             "eus_ends": self.eus_ends,
+            "els_ends": self.els_ends,
             "lifecycle_url": self.lifecycle_url,
             "matched_product": self.matched_product,
+            "els_eligible": self.els_eligible,
+            "extended_support_kind": self.extended_support_kind,
+            "lifecycle_note": self.lifecycle_note,
         }
 
 
@@ -294,10 +303,22 @@ class OperatorLifecycleScanner:
                 op.matched_product = entry.get("display_name") or entry.get("product_api_name") or ""
                 op.tier = (version_row or {}).get("tier") or entry.get("tier") or ""
                 op.lifecycle_url = entry.get("lifecycle_url") or ""
+            api_type = ""
             if version_row:
                 op.full_support_ends = version_row.get("full_support_ends") or ""
                 op.maintenance_ends = version_row.get("maintenance_ends") or ""
-                op.eus_ends = version_row.get("eus_ends") or version_row.get("els_ends") or ""
+                op.eus_ends = version_row.get("eus_ends") or ""
+                op.els_ends = version_row.get("els_ends") or ""
+                api_type = version_row.get("api_type") or ""
+            eligible, kind, note = extended_support_remark(
+                op.lifecycle_phase,
+                els_ends=op.els_ends,
+                eus_ends=op.eus_ends,
+                api_type=api_type,
+            )
+            op.els_eligible = eligible
+            op.extended_support_kind = kind
+            op.lifecycle_note = note
             self._report_progress(
                 "analyzing", i + 1, max(total, 1),
                 f"{op.display_name} → {op.lifecycle_phase}",
@@ -310,14 +331,18 @@ class OperatorLifecycleScanner:
             PHASE_OUT: 0,
             PHASE_UNKNOWN: 0,
         }
+        els_eligible_count = 0
         for op in self.operators:
             by_phase[op.lifecycle_phase] = by_phase.get(op.lifecycle_phase, 0) + 1
+            if op.els_eligible:
+                els_eligible_count += 1
 
         return {
             "generated_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
             "cluster_info": dict(self.cluster_info),
             "total_operators": len(self.operators),
             "by_phase": by_phase,
+            "els_eligible_count": els_eligible_count,
             **self.catalog.metadata,
         }
 

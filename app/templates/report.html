@@ -57,6 +57,26 @@
   {% endfor %}
 </div>
 
+{% set els_count = report.els_eligible_count|default(0) %}
+{% if els_count %}
+<div class="pf-v6-c-alert pf-m-warning pf-m-inline pf-v6-u-mb-lg" role="status" aria-label="Important ELS remark">
+  <div class="pf-v6-c-alert__icon">
+    <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+  </div>
+  <div class="pf-v6-c-alert__title">Important: Extended support may still be available</div>
+  <div class="pf-v6-c-alert__description">
+    <p>
+      {{ els_count }} operator{{ '' if els_count == 1 else 's' }}
+      reported as <strong>Out of maintenance</strong>
+      {{ 'is' if els_count == 1 else 'are' }} still ELS/EUS eligible.
+      Extended Lifecycle Support (ELS) or Extended Update Support (EUS)
+      usually needs a separate subscription — confirm against each product’s lifecycle policy.
+      See the gold <strong>ELS eligible</strong> labels and notes in the table below.
+    </p>
+  </div>
+</div>
+{% endif %}
+
 {% if report.cluster_info %}
 <div class="pf-v6-c-card pf-v6-u-mb-lg">
   <div class="pf-v6-c-card__header">
@@ -149,6 +169,7 @@
           <th role="columnheader">Tier</th>
           <th role="columnheader">Full support ends</th>
           <th role="columnheader">Maintenance ends</th>
+          <th role="columnheader">ELS ends</th>
           <th role="columnheader">CSV phase</th>
         </tr>
       </thead>
@@ -156,16 +177,34 @@
         {% for op in report.operators %}
         <tr role="row" class="operator-row"
             data-phase="{{ op.lifecycle_phase }}"
-            data-search="{{ (op.display_name ~ ' ' ~ op.package ~ ' ' ~ op.namespace) | lower }}">
+            data-search="{{ (op.display_name ~ ' ' ~ op.package ~ ' ' ~ op.namespace ~ ' ' ~ (op.lifecycle_note or '')) | lower }}">
           <td role="cell" data-label="Lifecycle phase">
             <span class="pf-v6-c-label pf-m-{{ phase_colors.get(op.lifecycle_phase, 'blue') }}">
               <span class="pf-v6-c-label__content">{{ op.lifecycle_phase }}</span>
             </span>
+            {% if op.els_eligible %}
+            <div class="pf-v6-u-mt-xs">
+              <span class="pf-v6-c-label pf-m-gold pf-m-compact" title="{{ op.lifecycle_note }}">
+                <span class="pf-v6-c-label__content">
+                  <i class="fas fa-exclamation-triangle pf-v6-u-mr-xs" aria-hidden="true"></i>
+                  {{ op.extended_support_kind or 'ELS' }} eligible
+                </span>
+              </span>
+            </div>
+            {% endif %}
           </td>
           <td role="cell" data-label="Operator" class="pf-v6-u-text-break-word">
             <strong>{{ op.display_name }}</strong>
             {% if op.matched_product and op.matched_product != op.display_name %}
             <div class="pf-v6-u-color-200 pf-v6-u-font-size-sm">{{ op.matched_product }}</div>
+            {% endif %}
+            {% if op.lifecycle_note %}
+            <div class="pf-v6-c-helper-text pf-v6-u-mt-xs">
+              <div class="pf-v6-c-helper-text__item pf-m-warning">
+                <span class="pf-v6-c-helper-text__item-icon"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i></span>
+                <span class="pf-v6-c-helper-text__item-text">{{ op.lifecycle_note }}</span>
+              </div>
+            </div>
             {% endif %}
           </td>
           <td role="cell" data-label="Package"><code>{{ op.package }}</code></td>
@@ -177,6 +216,7 @@
           <td role="cell" data-label="Tier">{{ op.tier or "—" }}</td>
           <td role="cell" data-label="Full support ends">{{ op.full_support_ends or "—" }}</td>
           <td role="cell" data-label="Maintenance ends">{{ op.maintenance_ends or "—" }}</td>
+          <td role="cell" data-label="ELS ends">{{ op.els_ends or op.eus_ends or "—" }}</td>
           <td role="cell" data-label="CSV phase">{{ op.csv_phase or "—" }}</td>
         </tr>
         {% endfor %}

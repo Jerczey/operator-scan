@@ -19,7 +19,7 @@ spec:
       serviceAccountName: operator-scan
       containers:
         - name: scanner
-          image: image-registry.openshift-image-registry.svc:5000/operator-scan/operator-scan:latest
+          image: quay.io/jerczey/operator-scan:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

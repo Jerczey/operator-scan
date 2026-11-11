@@ -163,6 +163,73 @@ def compute_lifecycle_phase(
     return PHASE_UNKNOWN
 
 
+def _is_extended_api_type(api_type: Optional[str]) -> bool:
+    if not api_type:
+        return False
+    low = api_type.lower()
+    return (
+        "extended support" in low
+        or "extended life" in low
+        or low in ("els", "eus")
+    )
+
+
+def extended_support_remark(
+    phase: str,
+    *,
+    els_ends: Optional[str] = None,
+    eus_ends: Optional[str] = None,
+    api_type: Optional[str] = None,
+    today: Optional[date] = None,
+) -> Tuple[bool, str, str]:
+    """Build an Important remark when out of maintenance but ELS/EUS remains.
+
+    Returns (eligible, support_kind, note). ``support_kind`` is ``ELS``,
+    ``EUS``, or ``ELS/EUS``. Notes are empty when not applicable.
+
+    Also honors catalog ``api_type`` values such as ``Extended Support``
+    (e.g. Red Hat Single Sign-On 7.6) when end dates are present or when
+    PLCC marks the stream as extended support.
+    """
+    today = today or date.today()
+    if phase != PHASE_OUT:
+        return False, "", ""
+
+    parts: List[str] = []
+    kinds: List[str] = []
+    els = _parse_iso_date(els_ends)
+    eus = _parse_iso_date(eus_ends)
+
+    if els and today <= els:
+        parts.append(
+            f"Extended Lifecycle Support (ELS) may still be available until {els.isoformat()}"
+        )
+        kinds.append("ELS")
+    if eus and today <= eus:
+        parts.append(
+            f"Extended Update Support (EUS) may still be available until {eus.isoformat()}"
+        )
+        kinds.append("EUS")
+
+    # Fallback: PLCC marks the version as Extended Support but ELS end date
+    # was missing from the catalog row (common for older bundled snapshots).
+    if not parts and _is_extended_api_type(api_type):
+        parts.append(
+            "Product is listed as Extended Support (ELS) in the Red Hat lifecycle catalog"
+        )
+        kinds.append("ELS")
+
+    if not parts:
+        return False, "", ""
+
+    note = (
+        ". ".join(parts)
+        + ". This usually requires a separate subscription; confirm eligibility "
+        "against the product lifecycle policy."
+    )
+    return True, "/".join(kinds), note
+
+
 def default_overlay_path(report_dir: str) -> str:
     return os.path.join(os.path.dirname(report_dir), "lifecycle_catalog.json")
 
@@ -285,6 +352,9 @@ class LifecycleCatalog:
             elif api_type in (PHASE_MAINTENANCE, "Maintenance Support"):
                 phase = PHASE_MAINTENANCE
             elif api_type.lower() in ("end of life", "eol", "retired"):
+                phase = PHASE_OUT
+            elif _is_extended_api_type(api_type):
+                # e.g. RH-SSO 7.6 "Extended Support" — past maintenance, ELS window
                 phase = PHASE_OUT
         return phase, entry, version_row
 

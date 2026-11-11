@@ -1,6 +1,6 @@
 {
   "catalog_version": "1.0.0",
-  "generated_at": "2026-11-11T14:15:00Z",
+  "generated_at": "2026-11-11T15:15:00Z",
   "source": "bundled",
   "source_url": "https://access.redhat.com/product-life-cycles/api/v2/products",
   "policy_url": "https://access.redhat.com/support/policy/updates/openshift_operators",
@@ -2315,8 +2315,8 @@
       ]
     },
     {
-      "display_name": "single sign-on",
-      "product_api_name": "single sign-on",
+      "display_name": "Red Hat Single Sign-On",
+      "product_api_name": "Red Hat Single Sign-On",
       "packages": [
         "rhsso-operator"
       ],
@@ -2332,7 +2332,21 @@
           "full_support_ends": "2022-06-30",
           "maintenance_ends": "2025-06-30",
           "eus_ends": null,
-          "openshift_compatibility": "4.12, 4.14, 4.16, 4.17, 4.18, 4.19, 4.20"
+          "els_ends": "2027-06-30",
+          "openshift_compatibility": "4.12, 4.14, 4.16, 4.17, 4.18, 4.19, 4.20",
+          "additional_text": "RH-SSO 7.6 is in Extended Lifecycle Support (ELS)"
+        }
+      ],
+      "product_stream_fallback": true,
+      "channel_mappings": {
+        "stable": "7.6",
+        "stable-7.6": "7.6",
+        "7.6.x": "7.6"
+      },
+      "channel_patterns": [
+        {
+          "pattern": "^(?:stable-)?(\\d+\\.\\d+)(?:\\.x)?$",
+          "group": 1
         }
       ]
     },
