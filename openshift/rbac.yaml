@@ -1,0 +1,43 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: operator-scan
+  namespace: operator-scan
+  labels:
+    app.kubernetes.io/name: operator-scan
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: operator-scan
+  labels:
+    app.kubernetes.io/name: operator-scan
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list"]
+  - apiGroups: ["config.openshift.io"]
+    resources: ["clusterversions"]
+    verbs: ["get", "list"]
+  - apiGroups: ["operators.coreos.com"]
+    resources:
+      - subscriptions
+      - clusterserviceversions
+      - operatorgroups
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: operator-scan
+  labels:
+    app.kubernetes.io/name: operator-scan
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: operator-scan
+subjects:
+  - kind: ServiceAccount
+    name: operator-scan
+    namespace: operator-scan

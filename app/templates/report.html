@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% block title %}Report {{ report_id }} - Operator Lifecycle Scanner{% endblock %}
+
+{% block content %}
+{% set phase_colors = {
+  "Full Support": "green",
+  "Maintenance Support": "gold",
+  "Out of maintenance": "orange",
+  "Unknown": "purple"
+} %}
+{% set phases = ["Full Support", "Maintenance Support", "Out of maintenance", "Unknown"] %}
+
+<div class="pf-v6-l-flex pf-m-justify-content-space-between pf-m-align-items-center pf-v6-u-mb-lg">
+  <div>
+    <h1 class="pf-v6-c-title pf-m-2xl">Operator lifecycle report</h1>
+    <p class="pf-v6-u-color-200 pf-v6-u-mt-sm">
+      {{ report.generated_at[:19] | replace("T", " ") }}
+      {% if report.cluster_info.get("openshift_version") %}
+      &mdash; OpenShift {{ report.cluster_info.openshift_version }}
+      {% endif %}
+    </p>
+  </div>
+  <div class="pf-v6-l-flex pf-m-gap-sm">
+    <a href="/reports/{{ report_id }}/csv" class="pf-v6-c-button pf-m-primary" id="btn-download-csv">
+      <i class="fas fa-file-csv pf-v6-u-mr-sm"></i> Download CSV
+    </a>
+    <a href="/reports/{{ report_id }}/download" class="pf-v6-c-button pf-m-secondary">
+      <i class="fas fa-download pf-v6-u-mr-sm"></i> Download JSON
+    </a>
+    <a href="/" class="pf-v6-c-button pf-m-link">
+      <i class="fas fa-arrow-left pf-v6-u-mr-sm"></i> Back
+    </a>
+  </div>
+</div>
+
+<div class="pf-v6-l-gallery pf-m-gutter pf-v6-u-mb-lg" style="--pf-v6-l-gallery--GridTemplateColumns--min: 160px;">
+  <div class="pf-v6-c-card summary-card summary-card--clickable" data-filter-phase="" title="Show all operators">
+    <div class="pf-v6-c-card__body">
+      <div class="pf-v6-u-font-size-3xl pf-v6-u-font-weight-bold">{{ report.total_operators }}</div>
+      <div class="pf-v6-u-color-200">Total operators</div>
+    </div>
+  </div>
+  {% for phase in phases %}
+  {% set count = report.by_phase.get(phase, 0) %}
+  <div class="pf-v6-c-card summary-card summary-card--clickable" data-filter-phase="{{ phase }}" title="Filter by {{ phase }}">
+    <div class="pf-v6-c-card__body">
+      <div class="pf-v6-u-font-size-3xl pf-v6-u-font-weight-bold">
+        {% if count > 0 and phase != "Full Support" %}
+        <span class="pf-v6-c-label pf-m-{{ phase_colors[phase] }}"><span class="pf-v6-c-label__content">{{ count }}</span></span>
+        {% else %}
+        {{ count }}
+        {% endif %}
+      </div>
+      <div class="pf-v6-u-color-200">{{ phase }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if report.cluster_info %}
+<div class="pf-v6-c-card pf-v6-u-mb-lg">
+  <div class="pf-v6-c-card__header">
+    <div class="pf-v6-c-card__header-main"><strong><i class="fas fa-server pf-v6-u-mr-sm"></i> Cluster info</strong></div>
+  </div>
+  <div class="pf-v6-c-card__body">
+    <dl class="pf-v6-c-description-list pf-m-horizontal pf-m-compact">
+      {% for key, val in report.cluster_info.items() %}
+      <div class="pf-v6-c-description-list__group">
+        <dt class="pf-v6-c-description-list__term"><span class="pf-v6-c-description-list__text">{{ key | replace("_", " ") | title }}</span></dt>
+        <dd class="pf-v6-c-description-list__description"><div class="pf-v6-c-description-list__text">{{ val }}</div></dd>
+      </div>
+      {% endfor %}
+      {% if report.catalog_source %}
+      <div class="pf-v6-c-description-list__group">
+        <dt class="pf-v6-c-description-list__term"><span class="pf-v6-c-description-list__text">Catalog Source</span></dt>
+        <dd class="pf-v6-c-description-list__description"><div class="pf-v6-c-description-list__text">{{ report.catalog_source }}</div></dd>
+      </div>
+      {% endif %}
+      {% if report.catalog_updated_at %}
+      <div class="pf-v6-c-description-list__group">
+        <dt class="pf-v6-c-description-list__term"><span class="pf-v6-c-description-list__text">Catalog Updated At</span></dt>
+        <dd class="pf-v6-c-description-list__description"><div class="pf-v6-c-description-list__text">{{ report.catalog_updated_at }}</div></dd>
+      </div>
+      {% endif %}
+    </dl>
+  </div>
+</div>
+{% endif %}
+
+<div class="pf-v6-c-card pf-v6-u-mb-md">
+  <div class="pf-v6-c-card__body">
+    <div class="pf-v6-l-flex pf-m-align-items-center pf-m-gap-md">
+      <div class="pf-v6-c-search-input" style="max-width: 360px; flex: 1;">
+        <div class="pf-v6-c-search-input__bar">
+          <span class="pf-v6-c-search-input__icon"><i class="fas fa-search"></i></span>
+          <input class="pf-v6-c-search-input__text-input" type="text" id="filter-text"
+                 placeholder="Filter by operator or package..." aria-label="Filter operators">
+        </div>
+      </div>
+      <div class="pf-v6-l-flex pf-m-gap-sm" id="phase-filters">
+        {% for phase in phases %}
+        <button class="pf-v6-c-label pf-m-{{ phase_colors[phase] }} phase-filter pf-m-outline"
+                data-phase="{{ phase }}" title="Toggle {{ phase }}">
+          <span class="pf-v6-c-label__content">{{ phase }}</span>
+        </button>
+        {% endfor %}
+      </div>
+      <button class="pf-v6-c-button pf-m-link pf-m-small" id="btn-clear-filters" title="Clear all filters" style="display:none;">
+        <i class="fas fa-times pf-v6-u-mr-xs"></i> Clear filters
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="pf-v6-c-card">
+  <div class="pagination-container" id="pagination-top">
+    <div class="pagination-per-page">
+      <span class="pagination-text">Items per page</span>
+      <select class="pagination-input" id="per-page-select" onchange="changePerPage(this.value)">
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="0">All</option>
+      </select>
+    </div>
+    <div class="pagination-total">
+      <span id="pagination-range">1 - 20</span> of <span id="pagination-total">0</span> items
+    </div>
+    <div class="pagination-nav">
+      <button class="pagination-btn" title="First page" onclick="goToPage(1)" id="pg-first"><i class="fas fa-angle-double-left"></i></button>
+      <button class="pagination-btn" title="Previous page" onclick="goToPage(currentPage - 1)" id="pg-prev"><i class="fas fa-angle-left"></i></button>
+      <input class="pagination-page-input" type="number" min="1" id="pg-input" value="1" onchange="goToPage(parseInt(this.value) || 1)">
+      <span class="pagination-text" id="pg-of">of 1</span>
+      <button class="pagination-btn" title="Next page" onclick="goToPage(currentPage + 1)" id="pg-next"><i class="fas fa-angle-right"></i></button>
+      <button class="pagination-btn" title="Last page" onclick="goToPage(totalPages)" id="pg-last"><i class="fas fa-angle-double-right"></i></button>
+    </div>
+  </div>
+
+  <div class="pf-v6-c-card__body">
+    <table class="pf-v6-c-table pf-m-grid-md pf-m-compact" role="grid" id="operators-table">
+      <thead>
+        <tr role="row">
+          <th role="columnheader">Lifecycle phase</th>
+          <th role="columnheader">Operator</th>
+          <th role="columnheader">Package</th>
+          <th role="columnheader">Version</th>
+          <th role="columnheader">Channel</th>
+          <th role="columnheader">Namespace</th>
+          <th role="columnheader">Tier</th>
+          <th role="columnheader">Full support ends</th>
+          <th role="columnheader">Maintenance ends</th>
+          <th role="columnheader">CSV phase</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for op in report.operators %}
+        <tr role="row" class="operator-row"
+            data-phase="{{ op.lifecycle_phase }}"
+            data-search="{{ (op.display_name ~ ' ' ~ op.package ~ ' ' ~ op.namespace) | lower }}">
+          <td role="cell" data-label="Lifecycle phase">
+            <span class="pf-v6-c-label pf-m-{{ phase_colors.get(op.lifecycle_phase, 'blue') }}">
+              <span class="pf-v6-c-label__content">{{ op.lifecycle_phase }}</span>
+            </span>
+          </td>
+          <td role="cell" data-label="Operator" class="pf-v6-u-text-break-word">
+            <strong>{{ op.display_name }}</strong>
+            {% if op.matched_product and op.matched_product != op.display_name %}
+            <div class="pf-v6-u-color-200 pf-v6-u-font-size-sm">{{ op.matched_product }}</div>
+            {% endif %}
+          </td>
+          <td role="cell" data-label="Package"><code>{{ op.package }}</code></td>
+          <td role="cell" data-label="Version">{{ op.version }}</td>
+          <td role="cell" data-label="Channel">{{ op.channel or "—" }}</td>
+          <td role="cell" data-label="Namespace">
+            <span class="pf-v6-c-label pf-m-compact"><span class="pf-v6-c-label__content">{{ op.namespace }}</span></span>
+          </td>
+          <td role="cell" data-label="Tier">{{ op.tier or "—" }}</td>
+          <td role="cell" data-label="Full support ends">{{ op.full_support_ends or "—" }}</td>
+          <td role="cell" data-label="Maintenance ends">{{ op.maintenance_ends or "—" }}</td>
+          <td role="cell" data-label="CSV phase">{{ op.csv_phase or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination-container" id="pagination-bottom">
+    <div class="pagination-per-page">
+      <span class="pagination-text">Items per page</span>
+      <select class="pagination-input" id="per-page-select-bottom" onchange="changePerPage(this.value)">
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="0">All</option>
+      </select>
+    </div>
+    <div class="pagination-total">
+      <span id="pagination-range-bottom">1 - 20</span> of <span id="pagination-total-bottom">0</span> items
+    </div>
+    <div class="pagination-nav">
+      <button class="pagination-btn" title="First page" onclick="goToPage(1)"><i class="fas fa-angle-double-left"></i></button>
+      <button class="pagination-btn" title="Previous page" onclick="goToPage(currentPage - 1)"><i class="fas fa-angle-left"></i></button>
+      <input class="pagination-page-input" type="number" min="1" id="pg-input-bottom" value="1" onchange="goToPage(parseInt(this.value) || 1)">
+      <span class="pagination-text" id="pg-of-bottom">of 1</span>
+      <button class="pagination-btn" title="Next page" onclick="goToPage(currentPage + 1)"><i class="fas fa-angle-right"></i></button>
+      <button class="pagination-btn" title="Last page" onclick="goToPage(totalPages)"><i class="fas fa-angle-double-right"></i></button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+var currentPage = 1;
+var totalPages = 1;
+var perPage = 20;
+
+function goToPage(page) {
+  if (page < 1) page = 1;
+  if (page > totalPages) page = totalPages;
+  currentPage = page;
+  applyPagination();
+}
+
+function changePerPage(val) {
+  perPage = parseInt(val) || 0;
+  currentPage = 1;
+  document.getElementById("per-page-select").value = val;
+  document.getElementById("per-page-select-bottom").value = val;
+  applyPagination();
+}
+
+function applyPagination() {
+  var rows = [];
+  document.querySelectorAll(".operator-row").forEach(function(row) {
+    if (row.dataset.filtered === "true") {
+      row.style.display = "none";
+    } else {
+      rows.push(row);
+    }
+  });
+
+  var total = rows.length;
+  var start, end;
+
+  if (perPage === 0 || perPage >= total) {
+    totalPages = 1;
+    currentPage = 1;
+    start = 0;
+    end = total;
+  } else {
+    totalPages = Math.ceil(total / perPage) || 1;
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+    start = (currentPage - 1) * perPage;
+    end = Math.min(start + perPage, total);
+  }
+
+  rows.forEach(function(row, idx) {
+    row.style.display = (idx >= start && idx < end) ? "" : "none";
+  });
+
+  var rangeText = total === 0 ? "0" : (start + 1) + " - " + end;
+  document.getElementById("pagination-range").textContent = rangeText;
+  document.getElementById("pagination-total").textContent = total;
+  document.getElementById("pagination-range-bottom").textContent = rangeText;
+  document.getElementById("pagination-total-bottom").textContent = total;
+  document.getElementById("pg-input").value = currentPage;
+  document.getElementById("pg-input").max = totalPages;
+  document.getElementById("pg-input-bottom").value = currentPage;
+  document.getElementById("pg-input-bottom").max = totalPages;
+  document.getElementById("pg-of").textContent = "of " + totalPages;
+  document.getElementById("pg-of-bottom").textContent = "of " + totalPages;
+
+  var isFirst = currentPage <= 1;
+  var isLast = currentPage >= totalPages;
+  document.getElementById("pg-first").disabled = isFirst;
+  document.getElementById("pg-prev").disabled = isFirst;
+  document.getElementById("pg-next").disabled = isLast;
+  document.getElementById("pg-last").disabled = isLast;
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  var reportId = "{{ report_id }}";
+  var activeFilters = new Set();
+  var filterInput = document.getElementById("filter-text");
+  var clearBtn = document.getElementById("btn-clear-filters");
+  var csvBtn = document.getElementById("btn-download-csv");
+
+  filterInput.addEventListener("input", applyFilters);
+
+  document.querySelectorAll(".phase-filter").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var phase = btn.dataset.phase;
+      if (activeFilters.has(phase)) {
+        activeFilters.delete(phase);
+        btn.classList.add("pf-m-outline");
+      } else {
+        activeFilters.add(phase);
+        btn.classList.remove("pf-m-outline");
+      }
+      syncCardHighlights();
+      applyFilters();
+    });
+  });
+
+  document.querySelectorAll(".summary-card--clickable").forEach(function(card) {
+    card.addEventListener("click", function() {
+      var phase = card.dataset.filterPhase;
+      if (phase === "" || phase === undefined) {
+        activeFilters.clear();
+        document.querySelectorAll(".phase-filter").forEach(function(b) { b.classList.add("pf-m-outline"); });
+        syncCardHighlights();
+        applyFilters();
+        return;
+      }
+      if (activeFilters.has(phase)) {
+        activeFilters.delete(phase);
+      } else {
+        activeFilters.add(phase);
+      }
+      document.querySelectorAll(".phase-filter").forEach(function(b) {
+        if (activeFilters.has(b.dataset.phase)) b.classList.remove("pf-m-outline");
+        else b.classList.add("pf-m-outline");
+      });
+      syncCardHighlights();
+      applyFilters();
+    });
+  });
+
+  clearBtn.addEventListener("click", function() {
+    activeFilters.clear();
+    filterInput.value = "";
+    document.querySelectorAll(".phase-filter").forEach(function(b) { b.classList.add("pf-m-outline"); });
+    syncCardHighlights();
+    applyFilters();
+  });
+
+  function syncCardHighlights() {
+    document.querySelectorAll(".summary-card--clickable").forEach(function(card) {
+      var phase = card.dataset.filterPhase;
+      if (phase === "" || phase === undefined) {
+        card.classList.toggle("summary-card--active", activeFilters.size === 0);
+      } else {
+        card.classList.toggle("summary-card--active", activeFilters.has(phase));
+      }
+    });
+  }
+
+  function applyFilters() {
+    var text = filterInput.value.trim().toLowerCase();
+    document.querySelectorAll(".operator-row").forEach(function(row) {
+      var phaseOk = activeFilters.size === 0 || activeFilters.has(row.dataset.phase);
+      var textOk = !text || (row.dataset.search || "").indexOf(text) !== -1;
+      row.dataset.filtered = (phaseOk && textOk) ? "false" : "true";
+    });
+    clearBtn.style.display = (activeFilters.size || text) ? "" : "none";
+    if (csvBtn) {
+      var phases = Array.from(activeFilters);
+      csvBtn.href = phases.length
+        ? "/reports/" + reportId + "/csv?phase=" + encodeURIComponent(phases.join(","))
+        : "/reports/" + reportId + "/csv";
+    }
+    currentPage = 1;
+    applyPagination();
+  }
+
+  syncCardHighlights();
+  applyFilters();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,7 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: operator-scan
+  labels:
+    app.kubernetes.io/name: operator-scan

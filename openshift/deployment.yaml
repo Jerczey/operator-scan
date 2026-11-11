@@ -1,0 +1,88 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: operator-scan
+  namespace: operator-scan
+  labels:
+    app.kubernetes.io/name: operator-scan
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: operator-scan
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: operator-scan
+    spec:
+      serviceAccountName: operator-scan
+      containers:
+        - name: scanner
+          image: image-registry.openshift-image-registry.svc:5000/operator-scan/operator-scan:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env:
+            - name: REPORT_DIR
+              value: /app/data/reports
+            - name: LIFECYCLE_REFRESH_ENABLED
+              value: "true"
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: operator-scan
+  namespace: operator-scan
+  labels:
+    app.kubernetes.io/name: operator-scan
+spec:
+  selector:
+    app.kubernetes.io/name: operator-scan
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: operator-scan
+  namespace: operator-scan
+  labels:
+    app.kubernetes.io/name: operator-scan
+spec:
+  to:
+    kind: Service
+    name: operator-scan
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

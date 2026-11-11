@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Operator Lifecycle Scanner{% endblock %}
+
+{% block content %}
+{% set phase_colors = {
+  "Full Support": "green",
+  "Maintenance Support": "gold",
+  "Out of maintenance": "orange",
+  "Unknown": "purple"
+} %}
+
+<div class="pf-v6-l-flex pf-m-justify-content-space-between pf-m-align-items-center pf-v6-u-mb-lg">
+  <div>
+    <h1 class="pf-v6-c-title pf-m-2xl">Operator lifecycle dashboard</h1>
+    <p class="pf-v6-u-color-200 pf-v6-u-mt-sm">
+      Scan installed OLM operators and map them to Full Support, Maintenance Support, or Out of maintenance.
+    </p>
+  </div>
+  <div class="pf-v6-l-flex pf-m-gap-sm">
+    <button id="btn-refresh-catalog" class="pf-v6-c-button pf-m-secondary" type="button"
+            title="Refresh lifecycle dates from Red Hat Product Life Cycle API when network access is available">
+      <i class="fas fa-sync pf-v6-u-mr-sm"></i> Update catalog
+    </button>
+    <button id="btn-start-scan" class="pf-v6-c-button pf-m-primary" type="button">
+      <i class="fas fa-magnifying-glass pf-v6-u-mr-sm"></i> New scan
+    </button>
+  </div>
+</div>
+
+{% if catalog %}
+<div class="pf-v6-c-card pf-v6-u-mb-lg">
+  <div class="pf-v6-c-card__body">
+    <dl class="pf-v6-c-description-list pf-m-horizontal pf-m-compact">
+      <div class="pf-v6-c-description-list__group">
+        <dt class="pf-v6-c-description-list__term"><span class="pf-v6-c-description-list__text">Catalog source</span></dt>
+        <dd class="pf-v6-c-description-list__description"><div class="pf-v6-c-description-list__text">{{ catalog.catalog_source or "bundled" }}</div></dd>
+      </div>
+      <div class="pf-v6-c-description-list__group">
+        <dt class="pf-v6-c-description-list__term"><span class="pf-v6-c-description-list__text">Catalog updated</span></dt>
+        <dd class="pf-v6-c-description-list__description"><div class="pf-v6-c-description-list__text">{{ catalog.catalog_updated_at or "—" }}</div></dd>
+      </div>
+      <div class="pf-v6-c-description-list__group">
+        <dt class="pf-v6-c-description-list__term"><span class="pf-v6-c-description-list__text">Catalog entries</span></dt>
+        <dd class="pf-v6-c-description-list__description"><div class="pf-v6-c-description-list__text">{{ catalog.operator_entries or 0 }}</div></dd>
+      </div>
+    </dl>
+  </div>
+</div>
+{% endif %}
+
+<div id="scan-progress-panel" class="pf-v6-c-card pf-v6-u-mb-lg" style="display:none;">
+  <div class="pf-v6-c-card__header">
+    <div class="pf-v6-c-card__header-main">
+      <i class="fas fa-spinner fa-spin pf-v6-u-mr-sm"></i>
+      <strong id="scan-progress-title">Scan in progress...</strong>
+    </div>
+  </div>
+  <div class="pf-v6-c-card__body">
+    <div class="pf-v6-c-progress" id="scan-progress-bar">
+      <div class="pf-v6-c-progress__description" id="scan-progress-detail">Initializing...</div>
+      <div class="pf-v6-c-progress__status" aria-hidden="true">
+        <span class="pf-v6-c-progress__measure" id="scan-progress-pct">0%</span>
+      </div>
+      <div class="pf-v6-c-progress__bar" role="progressbar"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="pf-v6-c-progress__indicator" style="width: 0%;" id="scan-progress-indicator"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="scan-options-panel" class="pf-v6-c-card pf-v6-u-mb-lg" style="display:none;">
+  <div class="pf-v6-c-card__header">
+    <div class="pf-v6-c-card__header-main"><strong>Scan options</strong></div>
+  </div>
+  <div class="pf-v6-c-card__body">
+    <form id="scan-options-form">
+      <div class="pf-v6-c-form__group pf-v6-u-mb-lg">
+        <label class="pf-v6-c-form__label pf-v6-u-mb-sm" for="opt-include">
+          <span class="pf-v6-c-form__label-text">Include namespaces</span>
+        </label>
+        <span class="pf-v6-c-form__helper-text pf-v6-u-mb-sm">Comma-separated names or regex patterns. Leave empty for all namespaces.<br>Examples: <code>openshift-operators, openshift-logging</code> or <code>openshift-.*</code></span>
+        <input class="pf-v6-c-form-control" type="text" id="opt-include" placeholder="e.g. openshift-operators, openshift-.*">
+      </div>
+      <div class="pf-v6-c-form__group pf-v6-u-mb-lg">
+        <label class="pf-v6-c-form__label pf-v6-u-mb-sm" for="opt-exclude">
+          <span class="pf-v6-c-form__label-text">Exclude namespaces</span>
+        </label>
+        <span class="pf-v6-c-form__helper-text pf-v6-u-mb-sm">Comma-separated names or regex patterns to exclude.</span>
+        <input class="pf-v6-c-form-control" type="text" id="opt-exclude" placeholder="e.g. test, .*-dev$">
+      </div>
+      <div class="pf-v6-l-flex pf-m-gap-md pf-v6-u-mt-lg">
+        <button type="submit" class="pf-v6-c-button pf-m-primary">
+          <i class="fas fa-play pf-v6-u-mr-sm"></i> Start scan
+        </button>
+        <button type="button" class="pf-v6-c-button pf-m-secondary" id="btn-cancel-options">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="pf-v6-c-alert pf-m-info pf-m-inline pf-v6-u-mb-md">
+  <div class="pf-v6-c-alert__icon"><i class="fas fa-info-circle"></i></div>
+  <h4 class="pf-v6-c-alert__title">Data persistence</h4>
+  <div class="pf-v6-c-alert__description">
+    Reports and refreshed catalogs are stored under the pod data volume and are lost on restart unless you mount persistent storage.
+  </div>
+</div>
+
+<div class="pf-v6-c-card">
+  <div class="pf-v6-c-card__header">
+    <div class="pf-v6-c-card__header-main">
+      <strong><i class="fas fa-file-lines pf-v6-u-mr-sm"></i> Scan reports</strong>
+    </div>
+  </div>
+  <div class="pf-v6-c-card__body">
+    {% if reports %}
+    <table class="pf-v6-c-table pf-m-grid-md pf-m-compact" role="grid">
+      <thead>
+        <tr role="row">
+          <th role="columnheader">Date</th>
+          <th role="columnheader">Operators</th>
+          <th role="columnheader">Full Support</th>
+          <th role="columnheader">Maintenance</th>
+          <th role="columnheader">Out of maintenance</th>
+          <th role="columnheader">Unknown</th>
+          <th role="columnheader">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reports %}
+        <tr role="row">
+          <td role="cell" data-label="Date">{{ r.generated_at[:19] | replace("T", " ") }}</td>
+          <td role="cell" data-label="Operators">{{ r.total_operators }}</td>
+          <td role="cell" data-label="Full Support">{{ r.by_phase.get("Full Support", 0) }}</td>
+          <td role="cell" data-label="Maintenance">
+            {% set maint = r.by_phase.get("Maintenance Support", 0) %}
+            {% if maint > 0 %}
+              <span class="pf-v6-c-label pf-m-gold"><span class="pf-v6-c-label__content">{{ maint }}</span></span>
+            {% else %}0{% endif %}
+          </td>
+          <td role="cell" data-label="Out of maintenance">
+            {% set out = r.by_phase.get("Out of maintenance", 0) %}
+            {% if out > 0 %}
+              <span class="pf-v6-c-label pf-m-orange"><span class="pf-v6-c-label__content">{{ out }}</span></span>
+            {% else %}0{% endif %}
+          </td>
+          <td role="cell" data-label="Unknown">
+            {% set unk = r.by_phase.get("Unknown", 0) %}
+            {% if unk > 0 %}
+              <span class="pf-v6-c-label pf-m-purple"><span class="pf-v6-c-label__content">{{ unk }}</span></span>
+            {% else %}0{% endif %}
+          </td>
+          <td role="cell" data-label="Actions">
+            <a href="/reports/{{ r.id }}" class="pf-v6-c-button pf-m-link pf-m-small" title="View">
+              <i class="fas fa-eye"></i>
+            </a>
+            <a href="/reports/{{ r.id }}/download" class="pf-v6-c-button pf-m-link pf-m-small" title="Download">
+              <i class="fas fa-download"></i>
+            </a>
+            <button class="pf-v6-c-button pf-m-link pf-m-small btn-delete-report" data-report-id="{{ r.id }}" title="Delete">
+              <i class="fas fa-trash"></i>
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="pf-v6-c-empty-state">
+      <div class="pf-v6-c-empty-state__content">
+        <i class="pf-v6-c-empty-state__icon fas fa-search" aria-hidden="true"></i>
+        <h2 class="pf-v6-c-empty-state__title-text">No reports yet</h2>
+        <div class="pf-v6-c-empty-state__body">
+          Click <strong>New scan</strong> to run your first operator lifecycle scan.
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

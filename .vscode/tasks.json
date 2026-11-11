@@ -1,0 +1,130 @@
+{
+  "version": "2.0.0",
+  "inputs": [
+    {
+      "id": "commitMessage",
+      "type": "promptString",
+      "description": "Enter commit message"
+    },
+    {
+      "id": "aiCommitMessage",
+      "type": "promptString",
+      "description": "Enter AI-style commit message"
+    },
+    {
+      "id": "filesToAdd",
+      "type": "promptString",
+      "description": "Enter files to add (space-separated)"
+    },
+    {
+      "id": "imageTag",
+      "type": "promptString",
+      "description": "Image tag (default: latest)",
+      "default": "latest"
+    }
+  ],
+  "tasks": [
+    {
+      "label": "Build: Container Image",
+      "type": "shell",
+      "command": "podman build -t operator-scan:${input:imageTag} -f Containerfile .",
+      "group": "build",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "detail": "Build the operator-scan container image with Podman"
+    },
+    {
+      "label": "Deploy: OpenShift Apply",
+      "type": "shell",
+      "command": "oc apply -f openshift/namespace.yaml && oc apply -f openshift/rbac.yaml && oc apply -f openshift/deployment.yaml",
+      "group": "build",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "detail": "Apply all OpenShift manifests (namespace, RBAC, deployment)"
+    },
+    {
+      "label": "Deploy: Rollout Restart",
+      "type": "shell",
+      "command": "oc rollout restart deployment/operator-scan -n operator-scan && oc rollout status deployment/operator-scan -n operator-scan",
+      "group": "build",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "detail": "Restart the deployment to pick up the latest image"
+    },
+    {
+      "label": "OpenShift: Status",
+      "type": "shell",
+      "command": "echo '=== DEPLOYMENTS ===' && oc get deployments -n operator-scan -o wide && echo '\\n=== PODS ===' && oc get pods -n operator-scan -o wide && echo '\\n=== SERVICES ===' && oc get services -n operator-scan && echo '\\n=== ROUTES ===' && oc get routes -n operator-scan",
+      "group": "build",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "detail": "Show status of all OpenShift resources"
+    },
+    {
+      "label": "OpenShift: Logs",
+      "type": "shell",
+      "command": "oc logs -n operator-scan deployment/operator-scan --tail=100 -f",
+      "group": "build",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "detail": "Tail logs from the running deployment"
+    },
+    {
+      "label": "Local: Run Flask Dev Server",
+      "type": "shell",
+      "command": "REPORT_DIR=./data/reports python run.py",
+      "group": "build",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "detail": "Run the Flask development server locally on port 8080"
+    },
+    {
+      "label": "Git: Smart Commit",
+      "type": "shell",
+      "command": "git add . && git commit -m \"${input:commitMessage}\"",
+      "group": "build",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Git: Commit with AI-style message",
+      "type": "shell",
+      "command": "git add . && git commit -m \"${input:aiCommitMessage}\"",
+      "group": "build",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Git: Status & Diff",
+      "type": "shell",
+      "command": "echo '=== GIT STATUS ===' && git status && echo '\\n=== GIT DIFF ===' && git diff --name-only && echo '\\n=== STAGED FILES ===' && git diff --cached --name-only",
+      "group": "build",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Git: Add specific files and commit",
+      "type": "shell",
+      "command": "git add ${input:filesToAdd} && git commit -m \"${input:commitMessage}\"",
+      "group": "build",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    }
+  ]
+}
