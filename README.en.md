@@ -2,6 +2,10 @@
 
 Web application that scans OpenShift clusters for installed OLM operators and reports Red Hat support lifecycle phases (Full Support, Maintenance Support, Out of maintenance).
 
+## Screenshot
+
+![Operator lifecycle report with ELS eligibility note](docs/images/report-example.png)
+
 ## Context
 
 Each Red Hat operator follows a lifecycle classification (Platform Aligned, Platform Agnostic, Rolling Stream, or Product Aligned). Cluster administrators need a clear view of which installed operator versions are still in Full Support or Maintenance Support.

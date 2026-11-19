@@ -2,6 +2,10 @@
 
 Aplicação web que analisa um cluster OpenShift em busca de operadores OLM instalados e reporta a fase de ciclo de vida de suporte da Red Hat (Full Support, Maintenance Support ou Out of maintenance).
 
+## Screenshot
+
+![Relatório de ciclo de vida com nota de elegibilidade ELS](docs/images/report-example.png)
+
 ## Contexto
 
 Cada operador Red Hat segue uma classificação de ciclo de vida (Platform Aligned, Platform Agnostic, Rolling Stream ou Product Aligned). Administradores precisam saber quais versões instaladas ainda estão em suporte pleno ou em manutenção.

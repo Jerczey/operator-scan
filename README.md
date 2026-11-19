@@ -7,11 +7,18 @@ Forked from the cgroups v2 checker UI/runtime pattern, adapted for Operator Life
 | [English](README.en.md) | [Português](README.pt-br.md) |
 |---|---|
 
+## Screenshot
+
+Example report from a scan (OpenShift 5 / RHCOS 9 SNO). Operators past maintenance that still have **ELS/EUS** are called out with an Important banner and gold **ELS eligible** labels:
+
+![Operator lifecycle report with ELS eligibility note](docs/images/report-example.png)
+
 ## Features
 
 - Lists installed OLM operators (Subscriptions + ClusterServiceVersions)
 - Matches package/version against a bundled Red Hat lifecycle catalog
 - Optional catalog refresh from the [Product Life Cycle Data API](https://access.redhat.com/product-life-cycles/api/v2/products)
+- Important remark when **Out of maintenance** operators remain ELS/EUS eligible
 - Clickable phase summary cards and filterable report table
 - CSV and JSON report download
 - Background scan with progress reporting
